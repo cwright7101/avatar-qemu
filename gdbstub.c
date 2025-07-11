@@ -1746,7 +1746,7 @@ static void handle_get_reg(GArray *params, void *user_ctx)
     reg_size = gdb_read_register(gdbserver_state.g_cpu,
                                  gdbserver_state.mem_buf,
                                  get_param(params, 0)->val_ull);
-    if (!reg_size) {
+    if (!reg_size || reg_size != gdbserver_state.mem_buf->len) {
         put_packet("E14");
         return;
     } else {

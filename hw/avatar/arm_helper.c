@@ -22,6 +22,7 @@
 #include "internals.h"
 
 #include "hw/avatar/arm_helper.h"
+#include "sysemu/cpu-timers.h"	/* For icount_get() */
 
 static int banked_gdb_set_reg(CPUARMState *env, uint8_t *buf, int reg){
     switch (reg) {
@@ -77,56 +78,72 @@ static int banked_gdb_get_reg(CPUARMState *env, GByteArray *buf, int reg)
 {
     switch(reg){
     case 0:
-        stl_p(buf, env->banked_r13[bank_number(ARM_CPU_MODE_USR)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r13[bank_number(ARM_CPU_MODE_USR)]);
     case 1:
-        stl_p(buf, env->banked_r14[bank_number(ARM_CPU_MODE_USR)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r14[bank_number(ARM_CPU_MODE_USR)]);
     case 2:
-        stl_p(buf, env->fiq_regs[0]); return 4;
+        return gdb_get_reg32(buf, env->fiq_regs[0]);
     case 3:
-        stl_p(buf, env->fiq_regs[1]); return 4;
+        return gdb_get_reg32(buf, env->fiq_regs[1]);
     case 4:
-        stl_p(buf, env->fiq_regs[2]); return 4;
+        return gdb_get_reg32(buf, env->fiq_regs[2]);
     case 5:
-        stl_p(buf, env->fiq_regs[3]); return 4;
+        return gdb_get_reg32(buf, env->fiq_regs[3]);
     case 6:
-        stl_p(buf, env->fiq_regs[4]); return 4;
+        return gdb_get_reg32(buf, env->fiq_regs[4]);
     case 7:
-        stl_p(buf, env->banked_r13[bank_number(ARM_CPU_MODE_FIQ)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r13[bank_number(ARM_CPU_MODE_FIQ)]);
     case 8:
-        stl_p(buf, env->banked_r14[bank_number(ARM_CPU_MODE_FIQ)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r14[bank_number(ARM_CPU_MODE_FIQ)]);
     case 9:
-        stl_p(buf, env->banked_r13[bank_number(ARM_CPU_MODE_IRQ)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r13[bank_number(ARM_CPU_MODE_IRQ)]);
     case 10:
-        stl_p(buf, env->banked_r14[bank_number(ARM_CPU_MODE_IRQ)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r14[bank_number(ARM_CPU_MODE_IRQ)]);
     case 11:
-        stl_p(buf, env->banked_r13[bank_number(ARM_CPU_MODE_SVC)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r13[bank_number(ARM_CPU_MODE_SVC)]);
     case 12:
-        stl_p(buf, env->banked_r14[bank_number(ARM_CPU_MODE_SVC)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r14[bank_number(ARM_CPU_MODE_SVC)]);
     case 13:
-        stl_p(buf, env->banked_r13[bank_number(ARM_CPU_MODE_ABT)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r13[bank_number(ARM_CPU_MODE_ABT)]);
     case 14:
-        stl_p(buf, env->banked_r14[bank_number(ARM_CPU_MODE_ABT)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r14[bank_number(ARM_CPU_MODE_ABT)]);
     case 15:
-        stl_p(buf, env->banked_r13[bank_number(ARM_CPU_MODE_UND)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r13[bank_number(ARM_CPU_MODE_UND)]);
     case 16:
-        stl_p(buf, env->banked_r14[bank_number(ARM_CPU_MODE_UND)]); return 4;
+        return gdb_get_reg32(buf, env->banked_r14[bank_number(ARM_CPU_MODE_UND)]);
     case 17:
-        stl_p(buf, env->banked_spsr[BANK_FIQ]); return 4;
+        return gdb_get_reg32(buf, env->banked_spsr[BANK_FIQ]);
     case 18:
-        stl_p(buf, env->banked_spsr[BANK_IRQ]); return 4;
+        return gdb_get_reg32(buf, env->banked_spsr[BANK_IRQ]);
     case 19:
-        stl_p(buf, env->banked_spsr[BANK_SVC]); return 4;
+        return gdb_get_reg32(buf, env->banked_spsr[BANK_SVC]);
     case 20:
-        stl_p(buf, env->banked_spsr[BANK_ABT]); return 4;
+        return gdb_get_reg32(buf, env->banked_spsr[BANK_ABT]);
     case 21:
-        stl_p(buf, env->banked_spsr[BANK_UND]); return 4;
+        return gdb_get_reg32(buf, env->banked_spsr[BANK_UND]);
+    default:
+        break;
     }
     return 0;
 }
 
+/* GrammaTech 2023-08-14 Synthetic instruction count register */
+static int cpuclk_gdb_set_reg(CPUARMState *env, uint8_t *buf, int reg) {
+    /* Write is a no-op */
+    info_report("Ignore set of cpuclk");
+    return 4;
+}
+
+static int cpuclk_gdb_get_reg(CPUARMState *env, GByteArray *buf, int reg) {
+    return gdb_get_reg64(buf, icount_get());
+}
 
 void avatar_add_banked_registers(ARMCPU *cpu){
     CPUState *cs = CPU(cpu);
     gdb_register_coprocessor(cs, banked_gdb_get_reg, banked_gdb_set_reg,
             22, "arm-banked.xml", 0);
+
+    /* GrammaTech 2023-08-14 Synthetic instruction count register */
+    gdb_register_coprocessor(cs, cpuclk_gdb_get_reg, cpuclk_gdb_set_reg,
+                             1, "arm-cpuclk.xml", 0);
 }
