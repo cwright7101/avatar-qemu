@@ -13,9 +13,15 @@
 #include "hw/avatar/remote_memory.h"
 
 #if defined(TARGET_ARM) || defined(TARGET_AARCH64)
-#include "target/arm/cpu.h"
+#  include "target/arm/cpu.h"
 #elif defined(TARGET_AVR)
-#include "target/avr/cpu.h"
+#  include "target/avr/cpu.h"
+#elif defined(TARGET_MIPS)
+#  include "target/mips/cpu.h"
+#elif defined(TARGET_PPC)
+#  include "target/ppc/cpu.h"
+#else
+#  error "avatar-rmemory: unsupported architecture"
 #endif
 
 
@@ -32,7 +38,16 @@ uint64_t get_current_pc(void)
     AVRCPU *cpu = AVR_CPU(qemu_get_cpu(0));
     return cpu->env.pc_w; /* PC register is register 35 */
 
+#elif defined(TARGET_MIPS)
+    MIPSCPU *cpu = MIPS_CPU(qemu_get_cpu(0));
+    return cpu->env.active_tc.PC;
+
+#elif defined(TARGET_PPC)
+    PowerPCCPU *cpu = POWERPC_CPU(qemu_get_cpu(0));
+    return cpu->env.nip;
+
 #else
+    error_report("avatar-rmemory: get_current_pc unsupported architecture\n");
     return 0; /*  implement me */
 #endif
 }
@@ -99,25 +114,11 @@ static Property avatar_rmemory_properties[] = {
     DEFINE_PROP_END_OF_LIST(),
 };
 
-//static void avatar_rmemory_init(Object *obj)
-//{
-//    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
-//    AvatarFwdState *s = AVATAR_FWD(obj);
-
-//    memory_region_init_io(&s->iomem, OBJECT(s), &avatar_fwd_ops, s, "avatar-fwd", s->size);
-//    sysbus_init_mmio(sbd, &s->iomem);
-//    sysbus_init_irq(sbd, &s->irq);
-
-//}
-
 QemuAvatarMessageQueue *rmem_rx_queue_ref = NULL;
 QemuAvatarMessageQueue *rmem_tx_queue_ref = NULL;
 
 static void avatar_rmemory_realize(DeviceState *dev, Error **errp)
 {
-
-
-
     AvatarRMemoryState *s = AVATAR_RMEMORY(dev);
     SysBusDevice *sbd = SYS_BUS_DEVICE(s);
     memory_region_init_io(&s->iomem, OBJECT(s), &avatar_rmemory_ops, s, "avatar-rmemory", s->size);
@@ -136,7 +137,6 @@ static void avatar_rmemory_realize(DeviceState *dev, Error **errp)
     s->rx_queue = rmem_rx_queue_ref;
     s->tx_queue = rmem_tx_queue_ref;
     s->request_id = 0;
-
 }
 
 static void avatar_rmemory_class_init(ObjectClass *oc, void *data)
@@ -147,17 +147,16 @@ static void avatar_rmemory_class_init(ObjectClass *oc, void *data)
     device_class_set_props(dc, avatar_rmemory_properties);
 }
 
-static const TypeInfo avatar_rmemory_arm_info = {
+static const TypeInfo avatar_rmemory_info = {
     .name          = TYPE_AVATAR_RMEMORY,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(AvatarRMemoryState),
-    //.instance_init = avatar_rmemory_init,
     .class_init    = avatar_rmemory_class_init,
 };
 
 static void avatar_rmemory_register_types(void)
 {
-    type_register_static(&avatar_rmemory_arm_info);
+    type_register_static(&avatar_rmemory_info);
 }
 
 type_init(avatar_rmemory_register_types)

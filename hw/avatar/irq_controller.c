@@ -15,23 +15,23 @@
 #define DEFAULT_NUM_IRQS 64
 #define OFFSET_IRQ_N_REGS 4
 
+
 #if defined(TARGET_ARM) || defined(TARGET_AARCH64)
-#include "target/arm/cpu.h"
-#include "hw/avatar/halucinator_irq_memory.h"
+#  include "target/arm/cpu.h"
+#  include "hw/avatar/halucinator_irq_memory.h"
 #elif defined(TARGET_MIPS)
+#  include "target/mips/cpu.h"
+#  include "hw/avatar/halucinator_irq_memory.h"
 #elif defined(TARGET_PPC)
-#include "target/ppc/cpu.h"
-#include "hw/avatar/halucinator_irq_memory.h"
-
+#  include "target/ppc/cpu.h"
+#  include "hw/avatar/halucinator_irq_memory.h"
+#else
+# error "halucinator_irq: unsupported architecture"
 #endif
-
 
 #define TYPE_HALUCINATOR_IRQ "halucinator-irq"
 #define HALUCINATOR_IRQ(obj) OBJECT_CHECK(HALucinatorIRQState, (obj), TYPE_HALUCINATOR_IRQ)
 
-
-// static void hexstr_to_buffer (const char *str, int n,unsigned char *buff);
-// void qmp_pmemwrite( int64_t pmem_addr,const char *data_buff, Error **errp);
 
 static void update_irq(HALucinatorIRQState * s){
     int i;
@@ -52,7 +52,6 @@ static void update_irq(HALucinatorIRQState * s){
         qemu_set_irq(s->irq, 0);
     }
 }
-
 
 static uint64_t halucinator_irqc_read(void *opaque, hwaddr offset,
                            unsigned size)
@@ -79,7 +78,6 @@ static uint64_t halucinator_irqc_read(void *opaque, hwaddr offset,
     return ret;
 }
 
-
 static void halucinator_irqc_write(void *opaque, hwaddr offset,
                         uint64_t value, unsigned size)
 {
@@ -104,7 +102,6 @@ static void halucinator_irqc_write(void *opaque, hwaddr offset,
     return;
 }
 
-
 static void irq_handler(void *opaque, int irq, int level)
 {
     struct HALucinatorIRQState *s = HALUCINATOR_IRQ(opaque);
@@ -121,7 +118,6 @@ static void irq_handler(void *opaque, int irq, int level)
     update_irq(s);
 }
 
-
 static const MemoryRegionOps halucinator_irq_ops = {
     .read = halucinator_irqc_read,
     .write = halucinator_irqc_write,
@@ -132,7 +128,6 @@ static Property halucinator_irq_properties[] = {
     DEFINE_PROP_UINT32("num_irqs", HALucinatorIRQState, num_irqs, DEFAULT_NUM_IRQS),
     DEFINE_PROP_END_OF_LIST(),
 };
-
 
 static void halucinator_irq_realize(DeviceState *dev, Error **errp)
 {
@@ -264,7 +259,7 @@ static void halucinator_irq_class_init(ObjectClass *oc, void *data)
 
 }
 
-static const TypeInfo halucinator_irq_arm_info = {
+static const TypeInfo halucinator_irq_info = {
     .name          = TYPE_HALUCINATOR_IRQ,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(HALucinatorIRQState),
@@ -274,7 +269,7 @@ static const TypeInfo halucinator_irq_arm_info = {
 static void halucinator_irq_register_types(void)
 {
     printf("QEMU: Halucinator-IRQ: Register types\n");
-    type_register_static(&halucinator_irq_arm_info);
+    type_register_static(&halucinator_irq_info);
 }
 
 type_init(halucinator_irq_register_types)

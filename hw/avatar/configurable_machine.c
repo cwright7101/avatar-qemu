@@ -469,6 +469,7 @@ void avatar_cm_set_entry_point(QDict *conf, THISCPU *cpuu)
 
 #if defined(TARGET_ARM) || defined(TARGET_AARCH64)
     cpuu->env.regs[15] = entry & (~1);
+    cpuu->env.pc = entry & (~1);
     cpuu->env.thumb = (entry & 1) == 1 ? 1 : 0;
 
 
@@ -510,10 +511,7 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
     BusState* sysbus = sysbus_get_default();
     int num_irq = 64;
 
-#elif defined(TARGET_I386)
-    //
-
-#elif defined(TARGET_MIPS)
+#elif defined(TARGET_I386) || defined(TARGET_MIPS)
     Error *err = NULL;
 #endif  /* TARGET_ARM && ! TARGET_AARCH64 */
 
@@ -530,7 +528,8 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
 
 #if !defined(TARGET_AARCH64)
     //create armv7m cpus together with nvic
-    if (!strcmp(cpu_type, "cortex-m3")) {
+    if (!strcmp(cpu_type, "cortex-m3") ||
+        !strcmp(cpu_type, "cortex-m4")) {
 
         if (qdict_haskey(conf, "num_irq")) {
             num_irq = qdict_get_int(conf, "num_irq");
@@ -539,7 +538,12 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
 
         dstate = qdev_new("armv7m");
         qdev_prop_set_uint32(dstate, "num-irq", num_irq);
-        qdev_prop_set_string(dstate, "cpu-type", ARM_CPU_TYPE_NAME("cortex-m3"));
+        // The macro ARM_CPU_TYPE_NAME needs a string constant, so we can't unfortunately just pass cpu_type
+        if (!strcmp(cpu_type, "cortex-m3")) {
+            qdev_prop_set_string(dstate, "cpu-type", ARM_CPU_TYPE_NAME("cortex-m3"));
+        } else {
+            qdev_prop_set_string(dstate, "cpu-type", ARM_CPU_TYPE_NAME("cortex-m4"));
+        }
         object_property_set_link(OBJECT(dstate), "memory",
         OBJECT(get_system_memory()), &error_abort);
         qdev_realize_and_unref(dstate, sysbus, NULL);
@@ -576,6 +580,19 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
     if (cpuu->apic_state) {
             device_legacy_reset(cpuu->apic_state);
     }
+
+    if (!object_property_set_uint(OBJECT(cpuu), "apic-id", 0, &err)) {
+        error_report_err(err);
+        object_unref(OBJECT(cpuu));
+        exit(EXIT_FAILURE);
+    }
+
+    if (!qdev_realize(DEVICE(cpuu), NULL, &err)) {
+        error_report_err(err);
+        object_unref(OBJECT(cpuu));
+        exit(EXIT_FAILURE);
+    }
+
 
 #elif defined(TARGET_MIPS)
     cpu_oc = cpu_class_by_name(TYPE_MIPS_CPU, cpu_type);
