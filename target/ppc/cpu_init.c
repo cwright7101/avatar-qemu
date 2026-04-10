@@ -25,6 +25,7 @@
 #include "sysemu/cpus.h"
 #include "sysemu/hw_accel.h"
 #include "sysemu/tcg.h"
+#include "hw/boards.h"
 #include "cpu-models.h"
 #include "mmu-hash32.h"
 #include "mmu-hash64.h"
@@ -8813,7 +8814,10 @@ static void ppc_cpu_reset(DeviceState *dev)
     msr |= (target_ulong)MSR_HVB;
     msr |= (target_ulong)0 << MSR_AP; /* TO BE CHECKED */
     msr |= (target_ulong)0 << MSR_SA; /* TO BE CHECKED */
-    msr |= (target_ulong)1 << MSR_EP;
+    /* Don't set EP for configurable machine - exception vectors at 0x0 */
+    if (strcmp(MACHINE_GET_CLASS(current_machine)->name, "configurable") != 0) {
+        msr |= (target_ulong)1 << MSR_EP;
+    }
 #if defined(DO_SINGLE_STEP) && 0
     /* Single step trace mode */
     msr |= (target_ulong)1 << MSR_SE;
@@ -8850,7 +8854,10 @@ static void ppc_cpu_reset(DeviceState *dev)
 #if !defined(CONFIG_USER_ONLY)
     env->nip = env->hreset_vector | env->excp_prefix;
 #if defined(CONFIG_TCG)
-    if (env->mmu_model != POWERPC_MMU_REAL) {
+    /* Skip TLB invalidation for configurable machine — it sets up
+     * identity-mapped TLB entries that must persist through reset. */
+    if (env->mmu_model != POWERPC_MMU_REAL &&
+        strcmp(MACHINE_GET_CLASS(current_machine)->name, "configurable") != 0) {
         ppc_tlb_invalidate_all(env);
     }
 #endif /* CONFIG_TCG */
