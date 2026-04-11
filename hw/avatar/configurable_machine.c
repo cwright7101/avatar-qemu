@@ -616,13 +616,20 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
     // cpuobj = object_new(cpu_type);
     cpuu = POWERPC_CPU(cpu_create(cpu_type));
 
-    /* Don't initialize timebase/decrementer for configurable machine.
-     * The decrementer would fire interrupts that the configurable
-     * machine can't handle (no exception vectors set up).
-     * Firmware that needs timers can set up its own via BP handlers. */
+    /* Initialize timebase so SPR reads (TBL/TBU) return real values.
+     * The decrementer timer will eventually fire, but MSR[EE]=0 prevents
+     * the exception from being delivered to the CPU. */
+    if (cpuu->env.flags & POWERPC_FLAG_RTC_CLK) {
+        /* POWER / PowerPC 601 RTC clock frequency is 7.8125 MHz */
+        cpu_ppc_tb_init(&(cpuu->env), 7812500UL);
+    } else {
+        /* Set time-base frequency to 100 Mhz */
+        cpu_ppc_tb_init(&(cpuu->env), 100UL * 1000UL * 1000UL);
+    }
 
-    /* Fix MSR, hflags, interrupts, and TLB for configurable machine. */
-    cpuu->env.msr &= ~((1ULL << MSR_EP) | (target_ulong)MSR_HVB);
+    /* Fix MSR, hflags, interrupts, and TLB for configurable machine.
+     * Clear MSR[EE] to mask the decrementer interrupt. */
+    cpuu->env.msr &= ~((1ULL << MSR_EP) | (1ULL << MSR_EE) | (target_ulong)MSR_HVB);
     cpuu->env.pending_interrupts = 0;
     CPU(cpuu)->interrupt_request = 0;
     CPU(cpuu)->exception_index = POWERPC_EXCP_NONE;
@@ -740,9 +747,10 @@ static void ppc_cpu_reset_handler(void *opaque)
     /* After CPU reset, fix MSR, hflags, and TLB for configurable machine.
      * Clear MSR[EP] so exception vectors are at 0x00000000 instead of
      * 0xFFF00000 (which likely has no memory mapped).
+     * Clear MSR[EE] to mask the decrementer interrupt.
      * Also clear MSR[HVB] to avoid hypervisor mode issues. */
     printf("Configurable: PPC reset handler - fixing MSR, hflags, interrupts, TLB\n");
-    env->msr &= ~((1ULL << MSR_EP) | (target_ulong)MSR_HVB);
+    env->msr &= ~((1ULL << MSR_EP) | (1ULL << MSR_EE) | (target_ulong)MSR_HVB);
     env->pending_interrupts = 0;
     CPU(cpu)->interrupt_request = 0;
     CPU(cpu)->exception_index = POWERPC_EXCP_NONE;
