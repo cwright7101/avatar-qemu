@@ -2,7 +2,11 @@
 #define AVATAR_POSIX_H
 
 #include <semaphore.h>
+#ifdef __APPLE__
+#include "hw/avatar/macos_mqueue.h"
+#else
 #include <mqueue.h>
+#endif
 
 #include "sysemu/runstate.h"
 

@@ -2976,8 +2976,8 @@ foreach target : target_dirs
       exe_name += '-unsigned'
     endif
 
-    if have_avatar
-      # To link the configurable machine with mqueue.h
+    if have_avatar and targetos != 'darwin'
+      # mqueue.h is in librt on Linux; macOS uses a FIFO-based shim instead
       link_args += ['-lrt']
     endif
 
