@@ -162,7 +162,13 @@ int ppc_cpu_gdb_read_register(CPUState *cs, GByteArray *buf, int n)
             gdb_get_reg32(buf, cpu_read_xer(env));
             break;
         case 70:
-            gdb_get_reg32(buf, env->fpscr);
+            /* fpscr — target_ulong to match ppc_gdb_register_len() and
+             * the corresponding write path in ppc_cpu_gdb_write_register,
+             * which both use target_ulong sizes. Using gdb_get_reg32 here
+             * appended 4 bytes while the register-length helper claimed 8
+             * on ppc64, which tripped the g-packet length assertion in
+             * gdbstub.c's handle_read_all_regs. */
+            gdb_get_regl(buf, env->fpscr);
             break;
         }
     }

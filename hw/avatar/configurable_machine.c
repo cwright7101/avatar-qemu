@@ -27,6 +27,7 @@
 #include "qemu/osdep.h"
 #include "qemu/error-report.h"
 #include "sysemu/sysemu.h"
+#include "sysemu/reset.h"
 #include "exec/address-spaces.h"
 #include "exec/hwaddr.h"
 #include "hw/hw.h"
@@ -61,6 +62,7 @@ typedef  MIPSCPU THISCPU;
 #elif defined(TARGET_PPC)
 #include "hw/ppc/ppc.h"
 #include "target/ppc/cpu.h"
+#include "target/ppc/helper_regs.h"
 typedef PowerPCCPU THISCPU;
 
 #elif defined(TARGET_AVR)
@@ -614,12 +616,40 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
     // cpuobj = object_new(cpu_type);
     cpuu = POWERPC_CPU(cpu_create(cpu_type));
 
+    /* Initialize timebase so SPR reads (TBL/TBU) return real values.
+     * The decrementer timer will eventually fire, but MSR[EE]=0 prevents
+     * the exception from being delivered to the CPU. */
     if (cpuu->env.flags & POWERPC_FLAG_RTC_CLK) {
         /* POWER / PowerPC 601 RTC clock frequency is 7.8125 MHz */
         cpu_ppc_tb_init(&(cpuu->env), 7812500UL);
     } else {
         /* Set time-base frequency to 100 Mhz */
         cpu_ppc_tb_init(&(cpuu->env), 100UL * 1000UL * 1000UL);
+    }
+
+    /* Fix MSR, hflags, interrupts, and TLB for configurable machine.
+     * Clear MSR[EE] to mask the decrementer interrupt. */
+    cpuu->env.msr &= ~((1ULL << MSR_EP) | (1ULL << MSR_EE) | (target_ulong)MSR_HVB);
+    cpuu->env.pending_interrupts = 0;
+    CPU(cpuu)->interrupt_request = 0;
+    CPU(cpuu)->exception_index = POWERPC_EXCP_NONE;
+    hreg_compute_hflags(&cpuu->env);
+
+    /* BookE CPUs always use TLB. Set up identity-mapped entries. */
+    if (cpuu->env.tlb.tlbm) {
+        ppcmas_tlb_t *tlb;
+        int i;
+        for (i = 0; i < 4; i++) {
+            tlb = booke206_get_tlbm(&cpuu->env, 1, 0, i);
+            if (tlb) {
+                tlb->mas1 = MAS1_VALID | (10 << MAS1_TSIZE_SHIFT);
+                tlb->mas2 = (uint32_t)i * 0x40000000UL;
+                tlb->mas7_3 = (uint32_t)i * 0x40000000UL;
+                tlb->mas7_3 |= MAS3_UR | MAS3_UW | MAS3_UX |
+                               MAS3_SR | MAS3_SW | MAS3_SX;
+            }
+        }
+        cpuu->env.tlb_dirty = true;
     }
 #endif
 
@@ -708,6 +738,43 @@ static void map_irqs(QDict *dev_dict,  QDict * periphs)
 }
 
 
+#if defined(TARGET_PPC)
+static void ppc_cpu_reset_handler(void *opaque)
+{
+    PowerPCCPU *cpu = opaque;
+    CPUPPCState *env = &cpu->env;
+
+    /* After CPU reset, fix MSR, hflags, and TLB for configurable machine.
+     * Clear MSR[EP] so exception vectors are at 0x00000000 instead of
+     * 0xFFF00000 (which likely has no memory mapped).
+     * Clear MSR[EE] to mask the decrementer interrupt.
+     * Also clear MSR[HVB] to avoid hypervisor mode issues. */
+    printf("Configurable: PPC reset handler - fixing MSR, hflags, interrupts, TLB\n");
+    env->msr &= ~((1ULL << MSR_EP) | (1ULL << MSR_EE) | (target_ulong)MSR_HVB);
+    env->pending_interrupts = 0;
+    CPU(cpu)->interrupt_request = 0;
+    CPU(cpu)->exception_index = POWERPC_EXCP_NONE;
+    hreg_compute_hflags(env);
+
+    if (env->tlb.tlbm) {
+        ppcmas_tlb_t *tlb;
+        int i;
+        for (i = 0; i < 4; i++) {
+            tlb = booke206_get_tlbm(env, 1, 0, i);
+            if (tlb) {
+                tlb->mas1 = MAS1_VALID | (10 << MAS1_TSIZE_SHIFT);
+                tlb->mas2 = (uint32_t)i * 0x40000000UL;
+                tlb->mas7_3 = (uint32_t)i * 0x40000000UL;
+                tlb->mas7_3 |= MAS3_UR | MAS3_UW | MAS3_UX |
+                               MAS3_SR | MAS3_SW | MAS3_SX;
+            }
+        }
+        env->tlb_dirty = true;
+        printf("Configurable: PPC TLB entries set (4 x 1GB)\n");
+    }
+}
+#endif
+
 static void board_init(MachineState * ms)
 {
     THISCPU *cpuu;
@@ -727,6 +794,11 @@ static void board_init(MachineState * ms)
 
     cpuu = create_cpu(ms, conf);
     avatar_cm_set_entry_point(conf, cpuu);
+
+#if defined(TARGET_PPC)
+    /* Register reset handler to fix hflags after CPU reset */
+    qemu_register_reset(ppc_cpu_reset_handler, cpuu);
+#endif
 
     peripherals = qdict_new();
     qdict_put_obj(peripherals, "cpu", (QObject *)cpuu);

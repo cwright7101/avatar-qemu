@@ -802,6 +802,11 @@ static void machine_class_init(ObjectClass *oc, void *data)
     object_class_property_set_description(oc, "avatar-config",
         "Avatar Config File");
 
+    object_class_property_add_str(oc, "config-filename",
+        machine_get_avatar_config, machine_set_avatar_config);
+    object_class_property_set_description(oc, "config-filename",
+        "Avatar Config File (alias for avatar-config)");
+
     object_class_property_add_str(oc, "initrd",
         machine_get_initrd, machine_set_initrd);
     object_class_property_set_description(oc, "initrd",
