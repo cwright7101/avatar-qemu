@@ -21,7 +21,8 @@ if have_avatar
     'configurable_machine.c',
     'avatar_posix.c',
     'remote_memory.c',
-    'irq_controller.c'
+    'irq_controller.c',
+    'mips_interrupts.c'
   ))
   specific_ss.add(when: 'TARGET_I386', if_true: files(
     'configurable_machine.c',
@@ -33,12 +34,14 @@ if have_avatar
     'avatar_posix.c',
     'remote_memory.c',
     'irq_controller.c',
+    'ppc_interrupts.c',
   ))
   specific_ss.add(when: 'TARGET_PPC64', if_true: files(
     'configurable_machine.c',
     'avatar_posix.c',
     'remote_memory.c',
     'irq_controller.c',
+    'ppc_interrupts.c',
   ))
   specific_ss.add(when: 'TARGET_X86_64', if_true: files('configurable_machine.c'))
 

@@ -80,4 +80,34 @@
   'if': { 'all': ['CONFIG_AVATAR', 'TARGET_ARM'] }
 }
 
+##
+# @avatar-mips-inject-irq:
+#
+# Assert MIPS Cause.IP[num-irq] on cpu *num-cpu*. Routes the IRQ
+# through the CPU's int_pin: equivalent to a real external
+# IRQ source raising its line. *num-irq* is the bit position in
+# Cause.IP[7:0]; MIPS HW IRQs are bits 2-7 (IP2..IP7).
+#
+# avatar-qemu only
+##
+{ 'command': 'avatar-mips-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' },
+  'if': { 'all': ['CONFIG_AVATAR', 'TARGET_MIPS'] }
+}
+
+##
+# @avatar-ppc-inject-irq:
+#
+# Assert the PowerPC CPU's IRQ input *num-irq* on cpu *num-cpu*.
+# *num-irq* is an index into env->irq_inputs (e.g.
+# PPCE500_INPUT_INT=4 for e500v2). Sets the line then immediately
+# clears it so the CPU sees a single edge.
+#
+# avatar-qemu only
+##
+{ 'command': 'avatar-ppc-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' },
+  'if': { 'all': ['CONFIG_AVATAR', 'TARGET_PPC'] }
+}
+
 
