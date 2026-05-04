@@ -81,6 +81,23 @@
 }
 
 ##
+# @avatar-arm-inject-irq:
+#
+# Pulse SPI line *num-irq* on the configurable machine's arm_gic
+# device. *num-irq* is the GIC IRQ ID (32+N for SPI N). The
+# halucinator-side YAML has the GIC instantiated as
+# ``qemu_name: arm_gic`` with its parent_irq output wired to the
+# Cortex-A CPU's IRQ input through the configurable_machine's
+# `irq` field; this command pulses the SPI input line directly.
+#
+# avatar-qemu only
+##
+{ 'command': 'avatar-arm-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' },
+  'if': { 'all': ['CONFIG_AVATAR', 'TARGET_ARM'] }
+}
+
+##
 # @avatar-mips-inject-irq:
 #
 # Assert MIPS Cause.IP[num-irq] on cpu *num-cpu*. Routes the IRQ

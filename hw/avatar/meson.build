@@ -4,14 +4,16 @@ if have_avatar
     'avatar_posix.c',
     'remote_memory.c',
     'arm_helper.c',
-    'irq_controller.c'
+    'irq_controller.c',
+    'arm_interrupts.c'
   ))
   specific_ss.add(when: 'TARGET_AARCH64', if_true: files(
     'configurable_machine.c',
     'avatar_posix.c',
     'remote_memory.c',
     'arm_helper.c',
-    'irq_controller.c'
+    'irq_controller.c',
+    'arm_interrupts.c'
   ))
   specific_ss.add(when: ['CONFIG_ARM_V7M'], if_true: files(
     'interrupts.c'
