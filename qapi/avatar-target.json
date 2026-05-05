@@ -127,4 +127,23 @@
   'if': { 'all': ['CONFIG_AVATAR', 'TARGET_PPC'] }
 }
 
+##
+# @avatar-shadow-irq:
+#
+# Shadow-write IRQ delivery: writes *irq-num* to physical address
+# *number-addr* and 1 to *fired-addr*, both as little-endian 32-bit
+# values, via cpu_physical_memory_write on the iothread. Bypasses
+# CPU exception machinery entirely — useful when avatar-qemu's
+# configurable_machine doesn't model the IRQ controller the
+# firmware expects (e.g. OpenPIC on PPC), and the GDB-protocol
+# M-packet shadow-write path would otherwise race the halucinator
+# dispatch loop's wait_for_stop on the same socket.
+#
+# avatar-qemu only
+##
+{ 'command': 'avatar-shadow-irq',
+  'data': {'number-addr': 'int', 'fired-addr': 'int', 'irq-num': 'int' },
+  'if': 'CONFIG_AVATAR'
+}
+
 
