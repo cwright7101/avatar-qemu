@@ -1,17 +1,22 @@
 if have_avatar
+  specific_ss.add(when: 'CONFIG_AVATAR', if_true: files('hal_irq.c'))
   specific_ss.add(when: 'TARGET_ARM', if_true: files(
     'configurable_machine.c',
     'avatar_posix.c',
     'remote_memory.c',
     'arm_helper.c',
-    'irq_controller.c'
+    'irq_controller.c',
+    'arm_interrupts.c',
+    'shadow_irq.c'
   ))
   specific_ss.add(when: 'TARGET_AARCH64', if_true: files(
     'configurable_machine.c',
     'avatar_posix.c',
     'remote_memory.c',
     'arm_helper.c',
-    'irq_controller.c'
+    'irq_controller.c',
+    'arm_interrupts.c',
+    'shadow_irq.c'
   ))
   specific_ss.add(when: ['CONFIG_ARM_V7M'], if_true: files(
     'interrupts.c'
@@ -21,24 +26,31 @@ if have_avatar
     'configurable_machine.c',
     'avatar_posix.c',
     'remote_memory.c',
-    'irq_controller.c'
+    'irq_controller.c',
+    'mips_interrupts.c',
+    'shadow_irq.c'
   ))
   specific_ss.add(when: 'TARGET_I386', if_true: files(
     'configurable_machine.c',
     'avatar_posix.c',
-    'remote_memory.c'
+    'remote_memory.c',
+    'shadow_irq.c'
   ))
   specific_ss.add(when: 'TARGET_PPC', if_true: files(
     'configurable_machine.c',
     'avatar_posix.c',
     'remote_memory.c',
     'irq_controller.c',
+    'ppc_interrupts.c',
+    'shadow_irq.c',
   ))
   specific_ss.add(when: 'TARGET_PPC64', if_true: files(
     'configurable_machine.c',
     'avatar_posix.c',
     'remote_memory.c',
     'irq_controller.c',
+    'ppc_interrupts.c',
+    'shadow_irq.c',
   ))
   specific_ss.add(when: 'TARGET_X86_64', if_true: files('configurable_machine.c'))
 

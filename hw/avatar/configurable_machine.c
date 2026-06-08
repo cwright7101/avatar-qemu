@@ -216,7 +216,8 @@ static void dummy_interrupt(void *opaque, int irq, int level)
 static SysBusDevice *make_configurable_device(const char *qemu_name,
                                               uint64_t address,
                                               int irq_num,
-                                              QList *properties)
+                                              QList *properties,
+                                              QList *regions)
 {
     DeviceState *dev;
     BusState* sysbus;
@@ -238,7 +239,27 @@ static SysBusDevice *make_configurable_device(const char *qemu_name,
     qdev_realize_and_unref(dev, sysbus, NULL);
 
     s = SYS_BUS_DEVICE(dev);
+    /* Map MMIO region 0 to `address`. Multi-region devices (arm_gic
+     * has 2: distributor + cpu interface; gicv3 has redistributors
+     * too) are mapped via the optional `regions` list, where each
+     * entry is {region: N, address: 0xNN}. The default behaviour
+     * (no regions list) maps only region 0. */
     sysbus_mmio_map(s, 0, address);
+    if (regions) {
+        QListEntry *re;
+        QLIST_FOREACH_ENTRY(regions, re) {
+            QDict *r = qobject_to(QDict, re->value);
+            if (!r) continue;
+            if (!qdict_haskey(r, "region") || !qdict_haskey(r, "address")) {
+                continue;
+            }
+            uint32_t region_idx = qdict_get_int(r, "region");
+            uint64_t region_addr = qdict_get_int(r, "address");
+            sysbus_mmio_map(s, region_idx, region_addr);
+            printf("Configurable: mapped region %u to 0x%" PRIx64 "\n",
+                   region_idx, region_addr);
+        }
+    }
     if (irq_num >= 0) {
         // may want to change to a qdev_get_gpio_in(dev, n)
         irq = qemu_allocate_irq(dummy_interrupt, dev, 1);
@@ -440,6 +461,7 @@ static void init_peripheral(QDict *device)
     {
         SysBusDevice *sb;
         QList *properties = NULL;
+        QList *regions = NULL;
 
         if(qdict_haskey(device, "properties") &&
            qobject_type(qdict_get(device, "properties")) == QTYPE_QLIST)
@@ -447,7 +469,14 @@ static void init_peripheral(QDict *device)
             properties = qobject_to(QList, qdict_get(device, "properties"));
         }
 
-        sb = make_configurable_device(qemu_name, address, irq_num, properties);
+        if(qdict_haskey(device, "regions") &&
+           qobject_type(qdict_get(device, "regions")) == QTYPE_QLIST)
+        {
+            regions = qobject_to(QList, qdict_get(device, "regions"));
+        }
+
+        sb = make_configurable_device(qemu_name, address, irq_num,
+                                      properties, regions);
         qdict_put_obj(peripherals, name, (QObject *)sb);
     }
     else

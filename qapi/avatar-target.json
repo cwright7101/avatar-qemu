@@ -80,4 +80,118 @@
   'if': { 'all': ['CONFIG_AVATAR', 'TARGET_ARM'] }
 }
 
+##
+# @avatar-arm-inject-irq:
+#
+# Pulse SPI line *num-irq* on the configurable machine's arm_gic
+# device. *num-irq* is the GIC IRQ ID (32+N for SPI N). The
+# halucinator-side YAML has the GIC instantiated as
+# ``qemu_name: arm_gic`` with its parent_irq output wired to the
+# Cortex-A CPU's IRQ input through the configurable_machine's
+# `irq` field; this command pulses the SPI input line directly.
+#
+# avatar-qemu only
+##
+{ 'command': 'avatar-arm-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' },
+  'if': { 'all': ['CONFIG_AVATAR', 'TARGET_ARM'] }
+}
 
+##
+# @avatar-mips-inject-irq:
+#
+# Assert MIPS Cause.IP[num-irq] on cpu *num-cpu*. Routes the IRQ
+# through the CPU's int_pin: equivalent to a real external
+# IRQ source raising its line. *num-irq* is the bit position in
+# Cause.IP[7:0]; MIPS HW IRQs are bits 2-7 (IP2..IP7).
+#
+# avatar-qemu only
+##
+{ 'command': 'avatar-mips-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' },
+  'if': { 'all': ['CONFIG_AVATAR', 'TARGET_MIPS'] }
+}
+
+##
+# @avatar-ppc-inject-irq:
+#
+# Assert the PowerPC CPU's IRQ input *num-irq* on cpu *num-cpu*.
+# *num-irq* is an index into env->irq_inputs (e.g.
+# PPCE500_INPUT_INT=4 for e500v2). Sets the line then immediately
+# clears it so the CPU sees a single edge.
+#
+# avatar-qemu only
+##
+{ 'command': 'avatar-ppc-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' },
+  'if': { 'all': ['CONFIG_AVATAR', 'TARGET_PPC'] }
+}
+
+##
+# @avatar-shadow-irq:
+#
+# Shadow-write IRQ delivery: writes *irq-num* to physical address
+# *number-addr* and 1 to *fired-addr*, both as little-endian 32-bit
+# values, via cpu_physical_memory_write on the iothread. Bypasses
+# CPU exception machinery entirely — useful when avatar-qemu's
+# configurable_machine doesn't model the IRQ controller the
+# firmware expects (e.g. OpenPIC on PPC), and the GDB-protocol
+# M-packet shadow-write path would otherwise race the halucinator
+# dispatch loop's wait_for_stop on the same socket.
+#
+# avatar-qemu only
+##
+{ 'command': 'avatar-shadow-irq',
+  'data': {'number-addr': 'int', 'fired-addr': 'int', 'irq-num': 'int' },
+  'if': 'CONFIG_AVATAR'
+}
+
+##
+# @hal-shadow-irq:
+#
+# Shadow-write IRQ delivery.
+#
+# @number-addr: physical address of the irq_number word
+#
+# @fired-addr: physical address of the irq_fired word
+#
+# @irq-num: interrupt number to record
+##
+{ 'command': 'hal-shadow-irq',
+  'data': {'number-addr': 'int', 'fired-addr': 'int', 'irq-num': 'int' } }
+
+##
+# @hal-arm-inject-irq:
+#
+# Pulse the GIC SPI line for an ARM/AArch64 IRQ.
+#
+# @num-cpu: CPU number
+#
+# @num-irq: interrupt id
+##
+{ 'command': 'hal-arm-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' } }
+
+##
+# @hal-mips-inject-irq:
+#
+# Assert a MIPS Cause.IP pin.
+#
+# @num-cpu: CPU number
+#
+# @num-irq: IP bit index
+##
+{ 'command': 'hal-mips-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' } }
+
+##
+# @hal-ppc-inject-irq:
+#
+# Raise the PowerPC external interrupt.
+#
+# @num-cpu: CPU number
+#
+# @num-irq: accepted for symmetry
+##
+{ 'command': 'hal-ppc-inject-irq',
+  'data': {'num-cpu': 'int', 'num-irq': 'int' } }
